@@ -1,0 +1,28 @@
+<h2>{{ title }}</h2>
+
+<blockquote>
+    {% if search %}
+        <h5>Поиск: <b>{{search}}</b></h5>
+    {% endif %}
+    <h5>Товаров найдено: <b>{{ pagination.getTotalItemCount }}</b></h5>
+</blockquote>
+
+<nav class="text-center">
+    {{ knp_pagination_render(pagination) }}
+</nav>
+
+<div class="col-md-12">
+    {% for product in pagination %}
+        <div class="col-md-4">
+            <div class="product">
+                <h5>{{product.name}}</h5>
+                <img src="{{product.image}}"/>
+                <h6>{{product.price}} руб.</h6>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+<nav class="text-center">
+    {{ knp_pagination_render(pagination) }}
+</nav>

@@ -1,0 +1,9 @@
+<ul class="nav nav-pills nav-stacked">
+    {% for item in items %}
+        <li {% if item.getId() == id_active %} class="active" {% endif %} id="{{filter}}_{{item.getId()}}">
+            <a href="{{ path('shop_filter', { 'id': item.getId(), 'filter': filter }) }}">
+                {{ item.getName() }} ({{ item.getProducts() | length }})
+            </a>
+        </li>
+    {% endfor %}
+</ul>

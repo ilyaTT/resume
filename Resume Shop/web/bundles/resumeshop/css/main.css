@@ -1,0 +1,42 @@
+body {
+    padding-top: 70px;
+}
+
+.content h2{
+    text-align: center;
+}
+
+.content blockquote{
+    margin: 0;
+}
+
+.content .pagination{
+    margin: 10px 0;
+}
+
+.product{
+    padding: 15px;
+    text-align: center;
+    height: 280px;
+}
+
+.product:hover{
+    background: #f2f1f2;
+    cursor: pointer;
+}
+
+.product img{
+    width: 50%;
+    display: block;
+    margin: 0 auto;
+}
+
+.nav > li > a{
+    padding: 5px 5px;
+    font-size: 12px;
+}
+
+.product h6{
+    padding: 5px 0;
+    font-weight: bold;
+}
