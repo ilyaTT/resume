@@ -1,0 +1,84 @@
+{
+	"dynamic_templates": [
+		{
+			"all": {
+				"match_mapping_type": "*",
+				"mapping": {
+					"type":  "keyword"
+				}
+			}
+		}
+	],
+	"_all": {
+		"enabled": false
+	},
+	"properties" : {
+		"group_id" : {
+			"type" : "keyword"
+		},
+		"offer" : {
+            "type" : "keyword"
+		},
+		"searchable" : {
+			"type" : "boolean"
+		},
+        "is_original" : {
+			"type" : "boolean"
+		},
+		"name" : {
+			"type" : "text",
+			"analyzer": "russian",
+			"index_options": "freqs",
+            "fields": {
+                "raw": {
+                    "type": "keyword"
+                }
+            }
+		},
+		"description" : {
+			"type" : "text",
+			"analyzer": "russian",
+			"index_options": "freqs"
+		},
+		"categories" : {
+			"type" : "text",
+			"analyzer": "russian",
+			"index_options": "freqs"
+		},
+		"price" : {
+			"type" : "float"
+		},
+		"price_old" : {
+			"type" : "float"
+		},
+		"discount" : {
+			"type" : "integer"
+		},
+		"url" : {
+			"type":  "keyword"
+		},
+		"imgs" : {
+			"type":  "keyword"
+		},
+		"imgs_hash" : {
+			"type":  "keyword"
+		},
+		"vendor" : {
+			"type":  "keyword"
+		},
+		"type_prefix" : {
+			"type":  "keyword"
+		},
+		"model" : {
+			"type":  "keyword"
+		},
+		"available" : {
+			"type" : "boolean"
+		},
+		"date" : {
+			"type": "date",
+            "format": "yyyy-MM-dd HH:mm:ss"
+		}
+	}
+
+}

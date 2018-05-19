@@ -1,8 +1,0 @@
-resume_shop:
-    resource: "@ResumeShopBundle/Controller/ShopController.php"
-    type:     annotation
-    prefix:   /shop/
-
-app:
-    resource: @AppBundle/Controller/
-    type:     annotation

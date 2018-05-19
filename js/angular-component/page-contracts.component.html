@@ -1,0 +1,201 @@
+<div class="modal fade slide-up disable-scroll tbm-treaEdit-modal in" style="display: block; background: #000; opacity: 0.4 !important;"></div>
+<div class="modal fade slide-up disable-scroll tbm-treaEdit-modal in" role="dialog" aria-hidden="false" style="display: block; padding-left: 17px;">
+   <div class="modal-dialog modal-lgx">
+      <div class="modal-content-wrapper">
+         <div class="modal-content">
+            <form [formGroup]="form" novalidate>
+               <div class="modal-header p-t-15 p-l-15 p-r-15 p-b-0 clearfix text-left">
+                  <button type="button" class="close" data-dismiss="modal" aria-hidden="true" (click)="close()">
+                      <i class="pg-close fs-14"></i>
+                  </button>
+                  <h5 class="m-t-0" *ngIf="contract.id">
+	                  Редактировать договор № {{contract.id}} <small>[от {{ contract.date_add | date : 'yyyy-MM-dd' }}]</small>
+                  </h5>
+	               <h5 class="m-t-0" *ngIf="!contract.id">
+		               Создать договор
+	               </h5>
+               </div>
+               <div class="modal-body p-t-0 p-b-0 p-l-15 p-r-15 ">
+                  <div class="treaEdit-block clearfix">
+                     <div class="treaEdit-block-Left" [class.error-block]="formSaveError">
+                        <div class="form-group clearfix m-t-10 m-b-10 ">
+                           <div class="col-md-6 p-r-0">
+                              <label class="fs-micro lh-n m-b-10">Начало действия:</label>
+                               <datetime
+                                   class="edit-datetime"
+                                   [datepicker]="{ format: 'yyyy-mm-dd', placeholder: 'Дата'}"
+                                   [timepicker]="false"
+                                   formControlName="valid_from"
+                               ></datetime>
+                           </div>
+                           <div class="col-md-6 p-r-0">
+                              <label class="fs-micro lh-n m-b-10">Окончание действия:</label>
+                               <datetime
+                                   class="edit-datetime"
+                                   [datepicker]="{ format: 'yyyy-mm-dd', placeholder: 'Дата'}"
+                                   [timepicker]="false"
+                                   formControlName="valid_until"
+                               ></datetime>
+                           </div>
+                        </div>
+
+                        <div class="form-group clearfix m-t-10 m-b-10 ">
+                           <div class="col-md-2 p-r-0">
+                               <label class="fs-micro lh-n m-b-10">Помещение:</label>
+								<div class="form-inline">
+								    <div class="input-group">
+								        <input type="text" class="form-control" formControlName="room"/>
+								    </div>
+								</div>
+                           </div>
+                           <div class="col-md-2 p-r-0">
+                               <label class="fs-micro lh-n m-b-10">Стеллаж:</label>
+								<div class="form-inline">
+								    <div class="input-group">
+								        <input type="text" class="form-control" formControlName="rack"/>
+								    </div>
+								</div>
+                           </div>
+                           <div class="col-md-2 p-r-0">
+                               <label class="fs-micro lh-n m-b-10">Полка:</label>
+								<div class="form-inline">
+								    <div class="input-group">
+								        <input type="text" class="form-control" formControlName="shelf"/>
+								    </div>
+								</div>
+                           </div>
+                           <div class="col-md-2 p-r-0">
+                               <label class="fs-micro lh-n m-b-10">Секция:</label>
+								<div class="form-inline">
+								    <div class="input-group">
+								        <input type="text" class="form-control" formControlName="section"/>
+								    </div>
+								</div>
+                           </div>
+                           <div class="col-md-2 p-r-0">
+                               <label class="fs-micro lh-n m-b-10">Папка:</label>
+								<div class="form-inline">
+								    <div class="input-group">
+								        <input type="text" class="form-control" formControlName="folder"/>
+								    </div>
+								</div>
+                           </div>
+                        </div>
+
+                        <!--<div class="form-group clearfix m-t-10 m-b-10 ">-->
+                             <!--<div class="col-md-6  p-l-0">-->
+                                 <!--<label class="fs-micro lh-n">Контейнеры в договоре:</label>-->
+                             <!--</div>-->
+                             <!--<div class="col-md-6 p-r-0">-->
+                                 <!--<a href="" class="fs-small text-complete display-inline-block m-r-10">2 площадки</a>-->
+                                 <!--<a href="" class="fs-small text-complete display-inline-block ">4 контейнера</a>-->
+                             <!--</div>-->
+                        <!--</div>-->
+
+                         <div class="form-group clearfix m-t-10 m-b-10" *ngIf="entityId == null">
+                             <div class="col-md-5  p-l-0">
+                                 <label class="fs-micro lh-n m-b-20">Наименование контрагента:</label>
+                             </div>
+                             <div class="col-md-6 p-r-0">
+                                 <input
+	                                 appOrganization
+									                 [setOrganization]="organization"
+									                 (organizationChange)="organization = $event"
+	                                 type="text"
+	                                 class="form-control input-sm"
+                                 />
+                             </div>
+                             <div class="col-md-1 p-r-0">
+                                 <a (click)="emitterOrganizationOpen(entity.organization)" class="btn btn-sm btn-default"><i class="fa fa-info"></i></a>
+                             </div>
+                         </div>
+
+                         <div class="form-group clearfix m-t-30 m-b-0">
+                             <div class="col-md-12 no-padding">
+                                 <div class="tEb-title">Отходообразователи</div>
+                             </div>
+                         </div>
+
+	                     <app-emitters
+		                     [parentGroup]="form"
+		                     [initValues]="contract.emitters ? contract.emitters : []"
+	                         (containerOpen)="emitterContainerOpen($event)"
+	                     ></app-emitters>
+
+                         <div class="form-group clearfix m-t-30 m-b-0">
+                             <div class="col-md-12 no-padding">
+                                 <div class="tEb-title h-a">Объем и место сбора ТКО</div>
+                             </div>
+                         </div>
+
+                          <!-- ТАБЛИЦА -->
+                          <div class="form-group clearfix">
+                             <table class="tbm-table-xs">
+                                 <thead>
+                                     <tr>
+                                         <th>Вместимость</th>
+	                                     <th>Единица объема</th>
+                                         <th>Место сбора и накопления</th>
+                                         <th>Периодичность вывоза ТКО</th>
+                                     </tr>
+                                 </thead>
+                                 <tbody *ngFor="let emitter of form.controls['emitters'].controls" [formGroup]="emitter">
+                                     <tr *ngFor="let container of emitter.controls['containers'].controls; let i = index;">
+                                         <td>
+                                             {{container.controls.capacity.value}}
+                                         </td>
+                                         <td>
+	                                         куб.м.
+                                         </td>
+                                         <td>
+	                                         {{container.controls.platform.controls.address.value}}
+                                         </td>
+                                         <td>
+	                                         <div>
+		                                         {{container.controls.export_days.value | classifier : (classifierSvc.daysExport | async) : 'ежедневно'}}
+	                                         </div>
+                                         </td>
+                                     </tr>
+                                 </tbody>
+                             </table>
+                          </div>
+                     </div>
+                     <div class="treaEdit-block-Right">
+	                     <!--<app-organization-->
+		                     <!--*ngIf="organization != null"-->
+		                     <!--[organization]="organization"-->
+	                         <!--(onClose)="emitterOrganizationClose()"-->
+	                         <!--(onOrganizationChange)="emitterOrganizationChange($event)"-->
+	                     <!--&gt;</app-organization>-->
+
+	                     <app-container-platforms
+		                     *ngIf="container != null"
+		                     [container]="container"
+		                     [emitter]="activeEmitterGroup"
+	                         (onClose)="emitterContainerClose()"
+	                     ></app-container-platforms>
+
+	                     <!--<div *ngIf="organization == null">-->
+							<!--<div>form details:</div>-->
+							<!--<pre>Is form valid?: <br>{{form.valid | json}}</pre>-->
+							<!--<pre>form value: <br>{{form.value | json}}</pre>-->
+	                     <!--</div>-->
+                     </div>
+                  </div>
+               </div>
+               <div class="modal-footer">
+                  <div class="clearfix">
+                     <div class="col-md-3">
+                        <button type="button" class="btn btn-success pull-right btn-block" (click)="save()">Сохранить</button>
+                     </div>
+                     <div class="col-md-1">
+                        <a (click)="close()" class="text-info m-t-5 display-block">Отмена</a>
+                     </div>
+                  </div>
+               </div>
+            </form>
+         </div>
+      </div>
+      <!-- /.modal-content -->
+   </div>
+</div>

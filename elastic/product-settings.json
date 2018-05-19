@@ -1,0 +1,22 @@
+{
+    "number_of_shards": 2,
+    "max_result_window": 100000,
+    "analysis": {
+        "analyzer": {
+            "russian": {
+                "type": "custom",
+                "tokenizer": "standard",
+                "filter": [
+                    "lowercase",
+                    "ru"
+                ]
+            }
+        },
+        "filter" : {
+            "ru" : {
+                "type" : "hunspell",
+                "locale" : "ru"
+            }
+        }
+    }
+}
