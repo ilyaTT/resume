@@ -5,7 +5,7 @@
  *      Author: Ilya Kharin
  */
 
-// отключаем предупреждения о безопастности функций
+// РѕС‚РєР»СЋС‡Р°РµРј РїСЂРµРґСѓРїСЂРµР¶РґРµРЅРёСЏ Рѕ Р±РµР·РѕРїР°СЃС‚РЅРѕСЃС‚Рё С„СѓРЅРєС†РёР№
 #define _CRT_SECURE_NO_WARNINGS 1
 
 #include "zlib.h"
@@ -30,20 +30,17 @@
 #include "BRLink.c"
 
 
-#include "BPCRE.c"
-#include "BLibxml.c"
-
-// ссылка на мастер-поток
+// СЃСЃС‹Р»РєР° РЅР° РјР°СЃС‚РµСЂ-РїРѕС‚РѕРє
 BManager *BMaster = NULL;
 
-// кол-во запущенных объектов модуля
+// РєРѕР»-РІРѕ Р·Р°РїСѓС‰РµРЅРЅС‹С… РѕР±СЉРµРєС‚РѕРІ РјРѕРґСѓР»СЏ
 static size_t GlobBCount = 0;
 
 /*
- * Метод выставляет флаг остановки для менеджера
+ * РњРµС‚РѕРґ РІС‹СЃС‚Р°РІР»СЏРµС‚ С„Р»Р°Рі РѕСЃС‚Р°РЅРѕРІРєРё РґР»СЏ РјРµРЅРµРґР¶РµСЂР°
  * */
 void BStop(BManager *self){
-	// под блокировкой стопим цикл опроса
+	// РїРѕРґ Р±Р»РѕРєРёСЂРѕРІРєРѕР№ СЃС‚РѕРїРёРј С†РёРєР» РѕРїСЂРѕСЃР°
 	uv_rwlock_rdlock(&self->stop.lock);
 	uv_stop(&self->loop);
 	self->stop.flag = 1;
@@ -51,29 +48,40 @@ void BStop(BManager *self){
 }
 
 
-// оберка метода остановки для питона
+// РѕР±РµСЂРєР° РјРµС‚РѕРґР° РѕСЃС‚Р°РЅРѕРІРєРё РґР»СЏ РїРёС‚РѕРЅР°
 static PyObject * BManager_func_stop(BManager *self){
 	BStop(self);
 	Py_RETURN_NONE;
 }
 
+// Р’РѕР·РІСЂР°С‰Р°РµС‚ РєРѕСЂС‚РµР¶ СЃ РїpРµРґСЃС‚Р°РІР»РµРЅРёРµРј РјРµСЃС‚Р° РїРѕСЃР»РµРґРЅРµРіРѕ РёСЃРєР»СЋС‡РµРЅРёСЏ
+PyObject *BManager_func_getPlaceEx(BManager *self){
+	PyObject *ex_tuple = PyTuple_New(3);
+
+	PyTuple_SetItem(ex_tuple, 0, PyInt_FromLong(self->ex.line));
+	PyTuple_SetItem(ex_tuple, 1, PyString_FromString(self->ex.func));
+	PyTuple_SetItem(ex_tuple, 2, PyString_FromString(self->ex.file));
+
+    return ex_tuple;
+}
+
 
 /*
- * Метод запускает цикл обработки событий, а так же таймер, выполняющий проверку на наличие новых соединений *
+ * РњРµС‚РѕРґ Р·Р°РїСѓСЃРєР°РµС‚ С†РёРєР» РѕР±СЂР°Р±РѕС‚РєРё СЃРѕР±С‹С‚РёР№, Р° С‚Р°Рє Р¶Рµ С‚Р°Р№РјРµСЂ, РІС‹РїРѕР»РЅСЏСЋС‰РёР№ РїСЂРѕРІРµСЂРєСѓ РЅР° РЅР°Р»РёС‡РёРµ РЅРѕРІС‹С… СЃРѕРµРґРёРЅРµРЅРёР№ *
  **/
 static PyObject * BManager_func_run(BManager *self){
-	// инициализируем случайную последовательность для этого потока
+	// РёРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј СЃР»СѓС‡Р°Р№РЅСѓСЋ РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅРѕСЃС‚СЊ РґР»СЏ СЌС‚РѕРіРѕ РїРѕС‚РѕРєР°
 	srand((u_int)time(NULL));
 
-	// стартуем таймер опроса соединений
+	// СЃС‚Р°СЂС‚СѓРµРј С‚Р°Р№РјРµСЂ РѕРїСЂРѕСЃР° СЃРѕРµРґРёРЅРµРЅРёР№
 	uv_timer_init(&self->loop, &self->uv.timerHigh);
-	uv_timer_start(&self->uv.timerHigh, onTimerHigh, 0, 10); // каждую 0.01 секунды - выход в питон
+	uv_timer_start(&self->uv.timerHigh, onTimerHigh, 0, 10); // РєР°Р¶РґСѓСЋ 0.01 СЃРµРєСѓРЅРґС‹ - РІС‹С…РѕРґ РІ РїРёС‚РѕРЅ
 
-	// стартуем таймер таймаутов
+	// СЃС‚Р°СЂС‚СѓРµРј С‚Р°Р№РјРµСЂ С‚Р°Р№РјР°СѓС‚РѕРІ
 	uv_timer_init(&self->loop, &self->uv.timerLow);
-	uv_timer_start(&self->uv.timerLow, onTimerLow, 0, 1000); // каждую секунду - проверка таймаута
+	uv_timer_start(&self->uv.timerLow, onTimerLow, 0, 1000); // РєР°Р¶РґСѓСЋ СЃРµРєСѓРЅРґСѓ - РїСЂРѕРІРµСЂРєР° С‚Р°Р№РјР°СѓС‚Р°
 
-	// если это мастер-поток, стартуем таймер DNS-ов
+	// РµСЃР»Рё СЌС‚Рѕ РјР°СЃС‚РµСЂ-РїРѕС‚РѕРє, СЃС‚Р°СЂС‚СѓРµРј С‚Р°Р№РјРµСЂ DNS-РѕРІ
 	if(self == BMaster){
 		BStartDNSTimer(self);
 	}
@@ -82,93 +90,220 @@ static PyObject * BManager_func_run(BManager *self){
 	uv_run(&self->loop, UV_RUN_DEFAULT);
 	Py_END_ALLOW_THREADS
 
-	// останавливаем все таймеры
+	// РѕСЃС‚Р°РЅР°РІР»РёРІР°РµРј РІСЃРµ С‚Р°Р№РјРµСЂС‹
 	uv_timer_stop(&self->uv.timerHigh);
 	uv_timer_stop(&self->uv.timerLow);
 
-	// если это мастер-поток, стопим таймер DNS-ов
+	// РµСЃР»Рё СЌС‚Рѕ РјР°СЃС‚РµСЂ-РїРѕС‚РѕРє, СЃС‚РѕРїРёРј С‚Р°Р№РјРµСЂ DNS-РѕРІ
 	if(self == BMaster){
 		BStopDNSTimer(self);
 	}
 
-	Py_RETURN_NONE;
+	if(PyErr_Occurred()){
+		return 0;
+	}
+	else{
+		Py_RETURN_NONE;
+	}
 }
 
-
-// высокочастотный таймер - обеспечивает заполненность слотов
+// РІС‹СЃРѕРєРѕС‡Р°СЃС‚РѕС‚РЅС‹Р№ С‚Р°Р№РјРµСЂ - РѕР±РµСЃРїРµС‡РёРІР°РµС‚ Р·Р°РїРѕР»РЅРµРЅРЅРѕСЃС‚СЊ СЃР»РѕС‚РѕРІ
 void onTimerHigh(uv_timer_t* handle){
-
-	// получаем менеджер
+	// РїРѕР»СѓС‡Р°РµРј РјРµРЅРµРґР¶РµСЂ
 	BManager *self = (BManager*)handle->loop->data;
-	// кол-во слотов, которое может быть заполнено. Передается в питон
-	PyObject *slots = NULL;
-
-	// проверяем http-запросы
-    if(self->http.slots > 0){
-    	PyGILState_STATE gstate = PyGILState_Ensure();
-    	// определяем запрашиваемое кол-во слотов
-    	slots = PyInt_FromLong(self->http.slots);
-    	// вызов питоновского метода
-    	B_CALL_PYTHON(self->http.onRequest B_COMMA slots);
-    	// освободим питон-число
-    	Py_DECREF(slots);
-    	PyGILState_Release(gstate);
-    }
-
-    // проверяем proxy-запросы
-    if(self->proxy.slots > 0){
-    	PyGILState_STATE gstate = PyGILState_Ensure();
-    	// определяем запрашиваемое кол-во слотов
-    	slots = PyInt_FromLong(self->proxy.slots);
-    	// вызов питоновского метода
-    	B_CALL_PYTHON(self->proxy.onRequest B_COMMA slots);
-    	// освободим питон-число
-    	Py_DECREF(slots);
-    	PyGILState_Release(gstate);
-    }
+	// РїСЂРѕР±СѓРµРј Р·Р°РїРѕР»РЅРёС‚СЊ СЃР»РѕС‚С‹ http
+	BFillSlots(self, (BNetEntity*)&self->http);
+	// РїСЂРѕР±СѓРµРј Р·Р°РїРѕР»РЅРёС‚СЊ СЃР»РѕС‚С‹ proxy
+	BFillSlots(self, (BNetEntity*)&self->proxy);
 }
 
 
-// низкочастотный таймер - обеспечивает остановку цикла
+// РЅРёР·РєРѕС‡Р°СЃС‚РѕС‚РЅС‹Р№ С‚Р°Р№РјРµСЂ - РѕР±РµСЃРїРµС‡РёРІР°РµС‚ РѕСЃС‚Р°РЅРѕРІРєСѓ С†РёРєР»Р°
 void onTimerLow(uv_timer_t* handle){
-
-	// получаем менеджер
+	// РїРѕР»СѓС‡Р°РµРј РјРµРЅРµРґР¶РµСЂ
 	BManager *self = (BManager*)handle->loop->data;
 
-	// дергаем метод обработки таймаутов
+	// РґРµСЂРіР°РµРј РјРµС‚РѕРґ РѕР±СЂР°Р±РѕС‚РєРё С‚Р°Р№РјР°СѓС‚РѕРІ
 	onTimeouts(self);
 
-	// имитируем цикл в питоне, если определена соответствующая функция
-	if(self->onLoop){
+	// РёРјРёС‚РёСЂСѓРµРј С†РёРєР» РІ РїРёС‚РѕРЅРµ, РµСЃР»Рё РѕРїСЂРµРґРµР»РµРЅР° СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰Р°СЏ С„СѓРЅРєС†РёСЏ
+	if(self->onLoop && self->onLoop != Py_None){
 		PyGILState_STATE gstate = PyGILState_Ensure();
 		PyObject* isMaster = (self == BMaster) ? Py_True : Py_False;
 		Py_INCREF(isMaster);
-		B_CALL_PYTHON(self->onLoop B_COMMA isMaster);
+		// РїСЂРѕР±СѓРµРј РІС‹Р·РІР°С‚СЊ РєР°Р»Р±СЌРє РѕС€РёР±РєРё
+		if(PyObject_CallFunctionObjArgs(self->onLoop, isMaster, NULL) == NULL){
+			B_SET_EX_PLACE()
+			BStop(self);
+		}
 		Py_DECREF(isMaster);
 		PyGILState_Release(gstate);
 	}
 }
 
 
-PyObject *BManager_func_set_params(BManager *self, PyObject *args, PyObject *kwargs){
+// РјРµС‚РѕРґ РїСЂРѕРІРµСЂРєРё СЂРµРґРёСЂРµРєС‚Р° РІ РєРѕРЅС‚РµРєСЃС‚Рµ РїРёС‚РѕРЅР°
+int BCheckRedirect(BNetHttp *netObj){
+	BManager *self = B_SELF;
+	int rc = 0;
 
-    // параметры инициализатора
+	// РёРјРёС‚РёСЂСѓРµРј С†РёРєР» РІ РїРёС‚РѕРЅРµ, РµСЃР»Рё РѕРїСЂРµРґРµР»РµРЅР° СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰Р°СЏ С„СѓРЅРєС†РёСЏ
+	if(self->http.onBeforeRedirect && self->http.onBeforeRedirect != Py_None){
+		PyGILState_STATE gstate = PyGILState_Ensure();
+		PyObject *result = NULL;
+		PyObject *redir = NULL;
+		BUrl tmp_us = {0};
+		// РІРЅСѓС‚СЂРµРЅРЅРёР№ СЂРµР·Р»СЊС‚Р°С‚ РѕРїРµСЂР°С†РёР№
+		int rci;
+		// СѓРєР°Р·Р°С‚РµР»СЊ РЅР° Р±СѓС„РµСЂС‹
+		char *redir_url = NULL;
+
+		// РєРѕРїРёСЂСѓРµРј РІРѕ РІСЂРµРјРµРЅРЅСѓСЋ СЃС‚СЂСѓРєС‚СѓСЂСѓ СѓСЂР»Р° С‚РµРєСѓС‰СѓСЋ СЃС‚СЂСѓРєС‚СѓСЂСѓ
+		memcpy(&tmp_us, netObj->url, sizeof(BUrl));
+
+		// СЂР°Р·Р±РёСЂР°РµРј СЂРµРґРёСЂРµРєС‚, Рё РѕР±РЅРѕРІР»СЏРµРј РґР°РЅРЅС‹РјРё РёР· РЅРµРіРѕ С‚РµРєСѓС‰СѓСЋ СЃС‚СЂСѓРєС‚СѓСЂСѓ СѓСЂР»Р°
+		if(rci = BHeaderParserUrl(netObj, netObj->redir, &tmp_us)){
+			B_ERROR(rci, NET);
+			goto end;
+		}
+
+		// СЃРѕР±РёСЂР°РµРј РїРѕР»РЅС‹Р№ СѓСЂР» СЂРµРґРёСЂРµРєС‚Р°
+		if((redir_url = BGlobBuf(netObj, B_CONST_SIZE_MAX_BUF)) == NULL){
+			goto end;
+		}
+
+		// РїСЂРѕР±СѓРµРј СЃРѕР±СЂР°С‚СЊ РІ СѓРєР°Р·Р°РЅРЅС‹Р№ Р±СѓС„РµСЂ СѓСЂР»
+		rci = BBuildUrl(redir_url, &tmp_us, B_CONST_SIZE_MAX_BUF);
+		// РїСЂРѕРІРµСЂСЏРµРј Р±РёР»Рґ СѓСЂР»Р° РЅР° РѕС€РёР±РєРё
+		if(rci < 0 || rci >= B_CONST_SIZE_MAX_BUF){
+			B_ERROR(B_E_NET_BUILD_URL, NET);
+			goto end;
+		}
+
+		// СЃРѕР±РёСЂР°РµРј РїРёС‚РѕРЅ-СЃС‚СЂРѕРєСѓ СЂРµРґРёСЂРµРєС‚Р°
+		if((redir = PyBuffer_FromMemory(redir_url, rci)) == NULL){
+			B_ERROR(B_E_NET_MALLOC, NET);
+			goto end;
+		}
+
+		// РїСЂРѕР±СѓРµРј РІС‹Р·РІР°С‚СЊ РєР°Р»Р±СЌРє РїСЂРµРѕР±СЂР°Р±РѕС‚РєРё СЂРµРґРёСЂРµРєС‚Р°
+		if((result = PyObject_CallFunctionObjArgs(self->http.onBeforeRedirect, redir, netObj->py[B_PY_KW], netObj->py[B_PY_TRANS], NULL)) == NULL){
+			B_SET_EX_PLACE()
+			BStop(self);
+			goto end;
+		}
+
+		// РµСЃР»Рё РІРѕР·РІСЂР°С‰РµРЅР° СЃС‚СЂРѕРєР° - СЌС‚Рѕ РїРµСЂРµРѕРїСЂРµРґРµР»РµРЅРЅС‹Р№ СѓСЂР» СЂРµРґРёСЂРµРєС‚Р°
+		if(PyString_Check(result)){
+			// РІС‹РґРµР»СЏРµРј Р±СѓС„РµСЂ РґР»СЏ РЅРѕРІРѕРіРѕ СѓСЂР»Р°
+			char *dst = BGlobBuf(netObj, PyString_GET_SIZE(result)+1);
+			// РєРѕРїРёСЂСѓРµРј РІ РЅРµРіРѕ РїРѕР»СѓС‡РµРЅРЅС‹Р№ СѓСЂР»
+			strcpy(dst, PyString_AS_STRING(result));
+			// РїРµСЂРµРїСЂРёСЃРІР°РёРІР°РµРј РµРіРѕ СЂРµРґРёСЂРµРєС‚Сѓ
+			netObj->redir = dst;
+			// СЂРµРґРёСЂРµРєС‚ СЂР°Р·СЂРµС€РµРЅ
+			rc = 1;
+		}
+		else{
+			// СЂРµР·СѓР»СЊС‚Р°С‚ С‡РµРєРёРЅРіР°
+			rc = result == Py_True;
+		}
+
+end:
+		// СЂРµР·СѓР»СЊС‚Р°С‚ РЅСѓР¶РЅРѕ РѕСЃРІРѕР±РѕРґРёС‚СЊ
+		Py_XDECREF(result);
+		Py_XDECREF(redir);
+
+		/*РЎСЃС‹Р»РєРё РЅР° Р°СЂРіСѓРјРµРЅС‚С‹ РѕСЃРІРѕР±РѕР¶РґР°С‚СЊ РЅРµ РЅСѓР¶РЅРѕ - Р°СЂРіСѓРјРµРЅС‚С‹ РЅРµ СЃРѕР·РґР°РІР°Р»РёСЃСЊ, Р° Р»РёС€СЊ РїРѕР»СѓС‡РёР»Рё СЃСЃС‹Р»РєРё */
+
+    	PyGILState_Release(gstate);
+
+    	return rc;
+	}
+	return 1;
+}
+
+
+
+// РјРµС‚РѕРґ СѓСЃС‚Р°РЅР°РІР»РёРІР°РµС‚ РїРµСЂРµРґР°РЅРЅС‹Р№ СѓСЂР» РєР°Рє С‡РµРєРµСЂ
+int BSetUrlChecker(BManager *self, char *url){
+	// РїРѕСЂС‚ Рё С…РѕСЃС‚ С‡РµРєРµСЂР°
+	char port[6] = {0},
+		 host[256] = {0};
+
+	// Р·Р°РїРѕР»РЅСЏРµРј СЂРµР·РѕР»РІРёРЅРіР°
+	struct addrinfo hints = {0, PF_INET, SOCK_STREAM, IPPROTO_TCP};
+
+	// СѓРєР°Р·Р°С‚РµР»СЊ РЅР° СЂРµР·СѓР»СЊС‚РёСЂСѓСЋС‰РёР№ СЃРїРёСЃРѕРє РѕС‚РІРµС‚Р°
+	struct addrinfo *resolv = NULL;
+
+	// РїСЂРѕРІРµСЂСЏРµРј СѓСЂР» С‡РµРєРµСЂР° РЅР° РїРµСЂРµРїРѕР»РЅРµРЅРёРµ
+	if(strlen(url) >= 256){
+		PyErr_SetString(PyExc_KeyError, "Overflow checker url!");
+		return -1;
+	}
+
+	// РєРѕРїРёСЂСѓРµРј СѓСЂР» РІ РѕР±СЉРµРєС‚
+	strcpy(self->proxy.rawUrl, url);
+
+	// РІС‹РїРѕР»СЏРЅРµРј РїСЂРѕРІРµСЂРєСѓ Рё СЂР°Р·Р±РѕСЂ СѓСЂР»Р° РЅР° СЃРѕСЃС‚РѕРІР»СЏСЋС‰РёРµ
+	if(BParseUrl(self->proxy.rawUrl, strlen(url), &self->proxy.url)){
+		PyErr_SetString(PyExc_KeyError, "Error parse url checker!");
+		return -1;
+	}
+
+    // РїРѕРјРµС‰Р°РµРј РґРѕРјРµРЅ РІ Р»РѕРєР°Р»СЊРЅСѓСЋ С„РёРєСЃРёСЂРѕРІР°РЅРЅСѓСЋ РїРµСЂРµРјРµРЅРЅСѓСЋ
+    strncpy(host, self->proxy.url.host.str, self->proxy.url.host.len);
+
+    // Р·Р°РєРёРґС‹РІР°РµРј РїРѕСЂС‚ РІ СЃС‚СЂРѕРєСѓ
+    if(self->proxy.url.port == 0){
+    	// РІС‹СЃС‚Р°РІР»СЏРµРј РїРѕСЂС‚С‹ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РІ Р·Р°РІРёСЃРёРјРѕСЃС‚Рё РѕС‚ РїСЂРѕС‚РѕРєРѕР»Р°
+    	if(self->proxy.url.ssl){
+    		sprintf(port, "%d", 443);
+    	}
+    	else{
+    		sprintf(port, "%d", 80);
+    	}
+    }
+    else{
+    	sprintf(port, "%d", self->proxy.url.port);
+    }
+
+	// СЂРµР·РѕР»РІРёРј СЃРёРЅС…СЂРѕРЅРЅРѕ СѓСЂР» С‡РµРєРµСЂР°
+	if(getaddrinfo(host, port, &hints, &resolv)){
+		PyErr_SetString(PyExc_KeyError, "Error resolv checker url!");
+		return -1;
+	}
+
+	// РєРѕРїРёСЂСѓРµРј Р±РёРЅР°СЂРЅС‹Р№ РІРёРґ СЂР°Р·СЂРµР·РѕР»РІРµРЅРЅРѕРіРѕ РґРѕРјРµРЅР° РІ СЃС‚СЂСѓРєС‚СѓСЂСѓ СѓСЂР»Р°
+	memcpy(&self->proxy.url.bin, resolv->ai_addr, sizeof(struct sockaddr));
+
+	// РѕСЃРІРѕР±РѕР¶РґР°РµРј РїР°РјСЏС‚СЊ РёР·-РїРѕРґ СЂРµР·РѕР»РІ-СЃС‚СЂСѓРєС‚СѓСЂ
+	freeaddrinfo(resolv);
+
+	return 0;
+}
+
+
+// РјРµС‚РѕРґ СѓСЃС‚Р°РЅР°РІР»РёРІР°РµС‚ РїР°СЂР°РјРµС‚СЂС‹
+PyObject *BManager_func_setParams(BManager *self, PyObject *args, PyObject *kwargs){
+
+    // РїР°СЂР°РјРµС‚СЂС‹ РёРЅРёС†РёР°Р»РёР·Р°С‚РѕСЂР°
     static char *kwList[] = {
-    	"slotsHttp", 			// метод вызывается каждую секунду
-    	"slotsProxy", 			// словарь настроек для http-запроса
-    	"checkUrl", 			// словарь настроек для proxy-запроса
+    	"slotsHttp", 			// РЅРѕРІРѕРµ РєРѕР»-РІРѕ СЃР»РѕС‚РѕРІ http
+    	"slotsProxy", 			// РЅРѕРІРѕРµ РєРѕР»-РІРѕ СЃР»РѕС‚РѕРІ РґР»СЏ РїСЂРѕРєСЃРё-С‡РµРєРµСЂР°
+    	"checkUrl", 			// СѓСЂР», РїРѕ РєРѕС‚РѕСЂРѕРјСѓ Р±СѓРґСѓС‚ РїСЂРѕС…РѕРґРёС‚СЊ РїСЂРѕРІРµСЂРєРё РїСЂРѕРєСЃРё
     	NULL
     };
 
-	// адрес урла для тестирования http-прокси. Должен так же включать в себя ip локального адреса в параметре пути
+	// Р°РґСЂРµСЃ СѓСЂР»Р° РґР»СЏ С‚РµСЃС‚РёСЂРѕРІР°РЅРёСЏ http-РїСЂРѕРєСЃРё. Р”РѕР»Р¶РµРЅ С‚Р°Рє Р¶Рµ РІРєР»СЋС‡Р°С‚СЊ РІ СЃРµР±СЏ ip Р»РѕРєР°Р»СЊРЅРѕРіРѕ Р°РґСЂРµСЃР° РІ РїР°СЂР°РјРµС‚СЂРµ РїСѓС‚Рё
 	char *url = NULL;
 
-	// локальные значения
+	// Р»РѕРєР°Р»СЊРЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ
     int slotsHttp = 0,
-    	slotsProxy = 0,
-    	slotsDelta = 0;
+    	slotsProxy = 0;
 
-	// производим разбор аргументов инициализатора
+	// РїСЂРѕРёР·РІРѕРґРёРј СЂР°Р·Р±РѕСЂ Р°СЂРіСѓРјРµРЅС‚РѕРІ РёРЅРёС†РёР°Р»РёР·Р°С‚РѕСЂР°
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|iis:set_params", kwList,
     		&slotsHttp,
     		&slotsProxy,
@@ -177,77 +312,27 @@ PyObject *BManager_func_set_params(BManager *self, PyObject *args, PyObject *kwa
     	Py_RETURN_NONE;
     }
 
-    // настройка http-слотов
+    // РЅР°СЃС‚СЂРѕР№РєР° http-СЃР»РѕС‚РѕРІ
     if(slotsHttp){
-    	// уменьшаем/увеличиваем текущие слоты
+    	// СѓРјРµРЅСЊС€Р°РµРј/СѓРІРµР»РёС‡РёРІР°РµРј С‚РµРєСѓС‰РёРµ СЃР»РѕС‚С‹
     	self->http.slots += self->http.slotsRaw - slotsHttp;
-    	// сохраняем новое значение
+    	// СЃРѕС…СЂР°РЅСЏРµРј РЅРѕРІРѕРµ Р·РЅР°С‡РµРЅРёРµ
     	self->http.slotsRaw = slotsHttp;
     }
 
-    // настройка proxy-слотов
+    // РЅР°СЃС‚СЂРѕР№РєР° proxy-СЃР»РѕС‚РѕРІ
     if(slotsProxy){
-    	// уменьшаем/увеличиваем текущие слоты
+    	// СѓРјРµРЅСЊС€Р°РµРј/СѓРІРµР»РёС‡РёРІР°РµРј С‚РµРєСѓС‰РёРµ СЃР»РѕС‚С‹
     	self->proxy.slots += self->proxy.slotsRaw - slotsProxy;
-    	// сохраняем новое значение
+    	// СЃРѕС…СЂР°РЅСЏРµРј РЅРѕРІРѕРµ Р·РЅР°С‡РµРЅРёРµ
     	self->proxy.slotsRaw = slotsProxy;
     }
 
-    // настройка урл-чекера
+    // РЅР°СЃС‚СЂРѕР№РєР° СѓСЂР»-С‡РµРєРµСЂР°
     if(url){
-    	// порт и хост чекера
-    	char port[6] = {0},
-    		 host[256] = {0};
-
-    	// заполняем резолвинга
-    	struct addrinfo hints = {0, PF_INET, SOCK_STREAM, IPPROTO_TCP};
-
-    	// указатель на результирующий список ответа
-    	struct addrinfo *resolv = NULL;
-
-    	// проверяем урл чевера на переполнение
-    	if(strlen(url) >= 256){
-    		PyErr_SetString(PyExc_KeyError, "Overflow checker url!");
+    	if(BSetUrlChecker(self, url) != 0){
     		return NULL;
     	}
-
-    	// копируем урл в объект
-    	strcpy(self->proxy.rawUrl, url);
-
-    	// выполянем проверку и разбор урла на состовляющие
-    	if(BParseUrl(self->proxy.rawUrl, strlen(url), &self->proxy.url)){
-    		PyErr_SetString(PyExc_KeyError, "Error parse url checker!");
-    		return NULL;
-    	}
-
-        // помещаем домен в локальную фиксированную переменную
-        strncpy(host, self->proxy.url.host.str, self->proxy.url.host.len);
-
-        // закидываем порт в строку
-        if(self->proxy.url.port == 0){
-        	// выставляем порты по умолчанию в зависимости от протокола
-        	if(self->proxy.url.ssl){
-        		sprintf(port, "%d", 443);
-        	}
-        	else{
-        		sprintf(port, "%d", 80);
-        	}
-        }
-        else{
-        	sprintf(port, "%d", self->proxy.url.port);
-        }
-
-    	// резолвим синхронно урл чекера
-    	if(getaddrinfo(host, port, &hints, &resolv)){
-    		PyErr_SetString(PyExc_KeyError, "Error resolv checker url!");
-    		return NULL;
-    	}
-
-    	// копируем бинарный вид разрезолвенного домена в структуру урла
-    	memcpy(&self->proxy.url.bin, resolv->ai_addr, sizeof(struct sockaddr));
-
-    	// освобождаем память из-под резолв-структур
-    	freeaddrinfo(resolv);
     }
 
 	Py_RETURN_NONE;
@@ -257,186 +342,197 @@ PyObject *BManager_func_set_params(BManager *self, PyObject *args, PyObject *kwa
 
 static int BManager_tp_init(BManager *self, PyObject *args, PyObject *kwargs){
 
-    // параметры инициализатора
+    // РїР°СЂР°РјРµС‚СЂС‹ РёРЅРёС†РёР°Р»РёР·Р°С‚РѕСЂР°
     static char *kwInter[] = {
-    	"onLoop", 			// метод вызывается каждую секунду
-    	"http", 			// словарь настроек для http-запроса
-    	"proxy", 			// словарь настроек для proxy-запроса
+    	"onLoop", 			// РјРµС‚РѕРґ РІС‹Р·С‹РІР°РµС‚СЃСЏ РєР°Р¶РґСѓСЋ СЃРµРєСѓРЅРґСѓ
+    	"onRequestError",	// РјРµС‚РѕРґ Р±СѓРґРµС‚ РІС‹Р·РІР°РЅ РїСЂРё РѕС€РёР±РєРµ СЂР°Р·Р±РѕСЂР° СЃР»РѕРІР°СЂСЏ РїР°СЂР°РјРµС‚СЂРѕРІ
+    	"http", 			// СЃР»РѕРІР°СЂСЊ РЅР°СЃС‚СЂРѕРµРє РґР»СЏ http-Р·Р°РїСЂРѕСЃР°
+    	"proxy", 			// СЃР»РѕРІР°СЂСЊ РЅР°СЃС‚СЂРѕРµРє РґР»СЏ proxy-Р·Р°РїСЂРѕСЃР°
     	NULL
     };
 
-    // параметры http-протокола
+    // РїР°СЂР°РјРµС‚СЂС‹ http-РїСЂРѕС‚РѕРєРѕР»Р°
     static char *kwHttp[] = {
-    	"onRequest",		// метод вызывается для выборки запроса из питона
-    	"onResponse",		// метод вызывается в ответ на завершение обработки http-запроса
-    	"slots",			// кол-во одновременных http-запросов
-    	"dns",				// список dns серверов вида [('8.8.4.4', 53), ('8.8.8.8', 53), ('4.2.2.4', 53)]
-    	"repeatsDns",		// кол-во повторов, в случае ошибки ответа dns
-    	"maxPage",			// максимальный размер http-страницы
-    	"xmlHandler",		// обработчик html-дерева
+    	"onRequest",		// РјРµС‚РѕРґ РІС‹Р·С‹РІР°РµС‚СЃСЏ РґР»СЏ РІС‹Р±РѕСЂРєРё Р·Р°РїСЂРѕСЃР° РёР· РїРёС‚РѕРЅР°
+    	"onResponse",		// РјРµС‚РѕРґ РІС‹Р·С‹РІР°РµС‚СЃСЏ РІ РѕС‚РІРµС‚ РЅР° Р·Р°РІРµСЂС€РµРЅРёРµ РѕР±СЂР°Р±РѕС‚РєРё http-Р·Р°РїСЂРѕСЃР°
+    	"slots",			// РєРѕР»-РІРѕ РѕРґРЅРѕРІСЂРµРјРµРЅРЅС‹С… http-Р·Р°РїСЂРѕСЃРѕРІ
+    	"dns",				// СЃРїРёСЃРѕРє dns СЃРµСЂРІРµСЂРѕРІ РІРёРґР° [('8.8.4.4', 53), ('8.8.8.8', 53), ('4.2.2.4', 53)]
+    	"repeatsDns",		// РєРѕР»-РІРѕ РїРѕРІС‚РѕСЂРѕРІ, РІ СЃР»СѓС‡Р°Рµ РѕС€РёР±РєРё РѕС‚РІРµС‚Р° dns
+    	"maxPage",			// РјР°РєСЃРёРјР°Р»СЊРЅС‹Р№ СЂР°Р·РјРµСЂ http-СЃС‚СЂР°РЅРёС†С‹
+    	"onBeforeRedirect",	// РјРµС‚РѕРґ РІС‹Р·С‹РІР°РµС‚СЃСЏ РїРµСЂРµРґ СЂРµРґРёСЂРµРєС‚РѕРј РґР»СЏ РІР°Р»Р»РёРґР°С†РёРё СѓСЂР»Р°, РЅР° РєРѕС‚РѕСЂС‹Р№ Р±СѓРґРµС‚ СЃРѕРІРµСЂС€РµРЅ РїРµСЂРµС…РѕРґ
     	NULL
     };
 
-    // параметры прокси-протокола
+    // РїР°СЂР°РјРµС‚СЂС‹ РїСЂРѕРєСЃРё-РїСЂРѕС‚РѕРєРѕР»Р°
     static char *kwProxy[] = {
-    	"onRequest",		// метод вызывается для выборки запроса из питона
-    	"onResponse",		// метод вызывается в ответ на завершение обработки прокси-запроса
-    	"slots",			// кол-во одновременных прокси-запросов
+    	"onRequest",		// РјРµС‚РѕРґ РІС‹Р·С‹РІР°РµС‚СЃСЏ РґР»СЏ РІС‹Р±РѕСЂРєРё Р·Р°РїСЂРѕСЃР° РёР· РїРёС‚РѕРЅР°
+    	"onResponse",		// РјРµС‚РѕРґ РІС‹Р·С‹РІР°РµС‚СЃСЏ РІ РѕС‚РІРµС‚ РЅР° Р·Р°РІРµСЂС€РµРЅРёРµ РѕР±СЂР°Р±РѕС‚РєРё РїСЂРѕРєСЃРё-Р·Р°РїСЂРѕСЃР°
+    	"slots",			// РєРѕР»-РІРѕ РѕРґРЅРѕРІСЂРµРјРµРЅРЅС‹С… РїСЂРѕРєСЃРё-Р·Р°РїСЂРѕСЃРѕРІ
+    	"checkUrl", 		// СѓСЂР», РїРѕ РєРѕС‚РѕСЂРѕРјСѓ Р±СѓРґСѓС‚ РїСЂРѕС…РѕРґРёС‚СЊ РїСЂРѕРІРµСЂРєРё РїСЂРѕРєСЃРё
     	NULL
     };
 
-    // словарь параметров обработки http-запроса
+    // СЃР»РѕРІР°СЂСЊ РїР°СЂР°РјРµС‚СЂРѕРІ РѕР±СЂР°Р±РѕС‚РєРё http-Р·Р°РїСЂРѕСЃР°
     PyObject *httpDict = NULL;
 
-    // словарь параметров обработки прокси-запроса
+    // СЃР»РѕРІР°СЂСЊ РїР°СЂР°РјРµС‚СЂРѕРІ РѕР±СЂР°Р±РѕС‚РєРё РїСЂРѕРєСЃРё-Р·Р°РїСЂРѕСЃР°
     PyObject *proxyDict = NULL;
 
-    // список кортежей с адресами dns-серверов
+    // СЃРїРёСЃРѕРє РєРѕСЂС‚РµР¶РµР№ СЃ Р°РґСЂРµСЃР°РјРё dns-СЃРµСЂРІРµСЂРѕРІ
     PyObject *dns = NULL;
 
-    // ошибка инициализатора
+    // РѕС€РёР±РєР° РёРЅРёС†РёР°Р»РёР·Р°С‚РѕСЂР°
     int err = 0;
 
     struct BManager_http *http = &self->http;
+    struct BManager_proxy *proxy = &self->proxy;
 
-    // инициируем случайную последовательность для потока запуска менеджера
+    // РёРЅРёС†РёРёСЂСѓРµРј СЃР»СѓС‡Р°Р№РЅСѓСЋ РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅРѕСЃС‚СЊ РґР»СЏ РїРѕС‚РѕРєР° Р·Р°РїСѓСЃРєР° РјРµРЅРµРґР¶РµСЂР°
     srand((u_int)time(NULL));
 
-	// проверим на инициализацию
+	// РїСЂРѕРІРµСЂРёРј РЅР° РёРЅРёС†РёР°Р»РёР·Р°С†РёСЋ
 	if(self->init){
 		PyErr_SetString(PyExc_RuntimeError, "Object was already initialized");
 		return -1;
 	}
 
 #ifndef B_CONST_USE_THREAD
-	// в случае неиспользования многопоточности может быть создан только один экземпляр
+	// РІ СЃР»СѓС‡Р°Рµ РЅРµРёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ РјРЅРѕРіРѕРїРѕС‚РѕС‡РЅРѕСЃС‚Рё РјРѕР¶РµС‚ Р±С‹С‚СЊ СЃРѕР·РґР°РЅ С‚РѕР»СЊРєРѕ РѕРґРёРЅ СЌРєР·РµРјРїР»СЏСЂ
 	if(GlobBCount > 0){
 		PyErr_SetString(PyExc_RuntimeError, "Only one NET-object can be created!");
 		return -1;
 	}
 #endif
 
-	// производим разбор аргументов инициализатора
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OO!O!:__init__", kwInter,
+	// РїСЂРѕРёР·РІРѕРґРёРј СЂР°Р·Р±РѕСЂ Р°СЂРіСѓРјРµРЅС‚РѕРІ РёРЅРёС†РёР°Р»РёР·Р°С‚РѕСЂР°
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOO!O!:__init__", kwInter,
     		&self->onLoop,
+    		&self->onRequestError,
     		&PyDict_Type, &httpDict,
     		&PyDict_Type, &proxyDict
     	)) {
 		return -1;
     }
 
-    // должен быть установлен либо http-запрос либо прокси-запрос
+    // РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ СѓСЃС‚Р°РЅРѕРІР»РµРЅ Р»РёР±Рѕ http-Р·Р°РїСЂРѕСЃ Р»РёР±Рѕ РїСЂРѕРєСЃРё-Р·Р°РїСЂРѕСЃ
     if(httpDict == NULL && proxyDict == NULL){
 		PyErr_SetString(PyExc_KeyError, "Error parse arguments!");
 		return -1;
     }
 
-    // порты начинаются со случайного значения
+    // РїРѕСЂС‚С‹ РЅР°С‡РёРЅР°СЋС‚СЃСЏ СЃРѕ СЃР»СѓС‡Р°Р№РЅРѕРіРѕ Р·РЅР°С‡РµРЅРёСЏ
     self->uv.port = (u_short)BRand(B_CONST_PORT_START, B_CONST_PORT_END);
 
-	// максимальный размер принимаемой страницы (дефолтное значение)
+	// РјР°РєСЃРёРјР°Р»СЊРЅС‹Р№ СЂР°Р·РјРµСЂ РїСЂРёРЅРёРјР°РµРјРѕР№ СЃС‚СЂР°РЅРёС†С‹ (РґРµС„РѕР»С‚РЅРѕРµ Р·РЅР°С‡РµРЅРёРµ)
     http->maxPage = B_CONST_MAX_PAGE;
 
-    // если установлен http-запрос - разбираем его
+    // СѓРєР°Р·Р°С‚РµР»Рё РЅР° СЃРїРёСЃРєРё Р°СЂРіСѓРјРµРЅС‚РѕРІ
+    http->keysArg = keysArgHttp;
+    proxy->keysArg = keysArgProxy;
+
+    // С‚РёРїС‹
+    http->type = B_NET_HTTP;
+    proxy->type = B_NET_PROXY;
+
+    // РµСЃР»Рё СѓСЃС‚Р°РЅРѕРІР»РµРЅ http-Р·Р°РїСЂРѕСЃ - СЂР°Р·Р±РёСЂР°РµРј РµРіРѕ
     if(httpDict != NULL){
-        if (!PyArg_ParseTupleAndKeywords(args, httpDict, "OOIO!|IIO!", kwHttp,
+        if (!PyArg_ParseTupleAndKeywords(args, httpDict, "OOIO!|IIO", kwHttp,
         		&http->onRequest,
         		&http->onResponse,
         		&http->slotsRaw,
         		&PyList_Type, &dns,
         		&http->dns.repeats,
         		&http->maxPage,
-        		&BXmlHandType, &http->xmlHand
+        		&http->onBeforeRedirect
         	)) {
     		return -1;
         }
 
-        // увеличение кол-ва ссылок на обработчик
-        Py_XINCREF(http->xmlHand);
-
-        //DEBUG!!!!!!!!!!!
-        BXMLInit(http->xmlHand);
-
-        // записываем начальные значения слотов
+        // Р·Р°РїРёСЃС‹РІР°РµРј РЅР°С‡Р°Р»СЊРЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ СЃР»РѕС‚РѕРІ
         if((http->slots = http->slotsRaw) > B_CONST_MAX_SLOTS){
     		PyErr_SetString(PyExc_ValueError, "Overflow slots number!");
     		return -1;
         }
 
-        // обратные вызовы должны жить!
-        Py_INCREF(http->onRequest);
-        Py_INCREF(http->onResponse);
+        // РѕР±СЂР°С‚РЅС‹Рµ РІС‹Р·РѕРІС‹ РґРѕР»Р¶РЅС‹ Р¶РёС‚СЊ!
+        Py_XINCREF(http->onRequest);
+        Py_XINCREF(http->onResponse);
+        Py_XINCREF(http->onBeforeRedirect);
 
-    	// устанавливаем сервера DNS. если произошла ошибка - обрабатываем ее
+    	// СѓСЃС‚Р°РЅР°РІР»РёРІР°РµРј СЃРµСЂРІРµСЂР° DNS. РµСЃР»Рё РїСЂРѕРёР·РѕС€Р»Р° РѕС€РёР±РєР° - РѕР±СЂР°Р±Р°С‚С‹РІР°РµРј РµРµ
     	if(err = BSetServersDNS(self, dns)){
-    		// ошибка памяти
+    		// РѕС€РёР±РєР° РїР°РјСЏС‚Рё
     		if(err == -1){
     			goto memerror;
     		}
-    		// выходим
+    		// РІС‹С…РѕРґРёРј
     		return -1;
     	}
 
-        // инициализация контекстов
+        // РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РєРѕРЅС‚РµРєСЃС‚РѕРІ
         if(BSslInitCtx(&self->ssl)){
         	goto memerror;
         }
 
-        // выделяем буферы для сборки больших буферов
-        do{
-        	int i = 0, j = 0;
-        	for(; i<B_FINAL_BODY; i++){
-        		// пробуем выделить искомую память
-                if(!(http->fbuf_bufs[i] = (char*)malloc(i == B_FINAL_HEAD ? B_CONST_SIZE_BUF_HEADER : http->maxPage))){
-                	// в случае ошибки выделения памяти - освобождаем прежде выделенную
-                	for(; j<B_FINAL_BODY; j++){
-                		if(http->fbuf_bufs[j]) free(http->fbuf_bufs[j]);
-                	}
-                	// сообщаем об ошибке
-                	goto memerror;
-                }
-        	}
-        }while(0);
+        // Р±СѓС„РµСЂ РґР»СЏ С‚РµРєСЃС‚Р° Р·Р°РіРѕР»РѕРІРєР°
+        if(!(http->fbuf_bufs[B_FINAL_HEAD] = (char*)malloc(B_CONST_SIZE_BUF_HEADER))){
+			goto memerror;
+		}
+        // Р±СѓС„РµСЂ РґР»СЏ С‚РµРєСЃС‚Р° С‚РµР»Р°
+        if(!(http->fbuf_bufs[B_FINAL_BODY] = (char*)malloc(http->maxPage))){
+			goto memerror;
+		}
     }
 
-    // если установлен прокси-запрос - разбираем его
+    // РµСЃР»Рё СѓСЃС‚Р°РЅРѕРІР»РµРЅ РїСЂРѕРєСЃРё-Р·Р°РїСЂРѕСЃ - СЂР°Р·Р±РёСЂР°РµРј РµРіРѕ
     if(proxyDict != NULL){
-    	if (!PyArg_ParseTupleAndKeywords(args, proxyDict, "OOI", kwProxy,
-        		&self->proxy.onRequest,
-        		&self->proxy.onResponse,
-        		&self->proxy.slots
+    	// Р°РґСЂРµСЃ СѓСЂР»Р° РґР»СЏ С‚РµСЃС‚РёСЂРѕРІР°РЅРёСЏ http-РїСЂРѕРєСЃРё. Р”РѕР»Р¶РµРЅ С‚Р°Рє Р¶Рµ РІРєР»СЋС‡Р°С‚СЊ РІ СЃРµР±СЏ ip Р»РѕРєР°Р»СЊРЅРѕРіРѕ Р°РґСЂРµСЃР° РІ РїР°СЂР°РјРµС‚СЂРµ РїСѓС‚Рё
+    	char *urlChecker = NULL;
+
+    	if (!PyArg_ParseTupleAndKeywords(args, proxyDict, "OOI|s", kwProxy,
+        		&proxy->onRequest,
+        		&proxy->onResponse,
+        		&proxy->slotsRaw,
+        		&urlChecker
         	)) {
     		return -1;
         }
 
-        // записываем начальные значения слотов
-        if((self->proxy.slots = self->proxy.slotsRaw) > B_CONST_MAX_SLOTS){
+        // Р·Р°РїРёСЃС‹РІР°РµРј РЅР°С‡Р°Р»СЊРЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ СЃР»РѕС‚РѕРІ
+        if((proxy->slots = self->proxy.slotsRaw) > B_CONST_MAX_SLOTS){
     		PyErr_SetString(PyExc_ValueError, "Overflow slots number!");
     		return -1;
         }
 
-        // обратные вызовы должны жить!
-        Py_INCREF(self->proxy.onRequest);
-        Py_INCREF(self->proxy.onResponse);
+        // РЅР°СЃС‚СЂРѕР№РєР° СѓСЂР»-С‡РµРєРµСЂР°
+        if(urlChecker){
+        	if(BSetUrlChecker(self, urlChecker) != 0){
+        		return -1;
+        	}
+        }
+
+        // РѕР±СЂР°С‚РЅС‹Рµ РІС‹Р·РѕРІС‹ РґРѕР»Р¶РЅС‹ Р¶РёС‚СЊ!
+        Py_INCREF(proxy->onRequest);
+        Py_INCREF(proxy->onResponse);
     }
 
 
-    // инициализируем цикл
+    // РёРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј С†РёРєР»
 	if((err = uv_loop_init(&self->loop))){
 		PyErr_SetString(PyExc_KeyError, uv_strerror(err));
 		return -1;
 	}
 
-    // инициализируем блокировку на остановку цикла
+    // РёРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј Р±Р»РѕРєРёСЂРѕРІРєСѓ РЅР° РѕСЃС‚Р°РЅРѕРІРєСѓ С†РёРєР»Р°
     uv_rwlock_init(&self->stop.lock);
 
-	// сообщаем, что менеджер уже инициализирован
+	// СЃРѕРѕР±С‰Р°РµРј, С‡С‚Рѕ РјРµРЅРµРґР¶РµСЂ СѓР¶Рµ РёРЅРёС†РёР°Р»РёР·РёСЂРѕРІР°РЅ
 	self->init = 1;
 
-	// сохраняем указатель на менеджер
+	// СЃРѕС…СЂР°РЅСЏРµРј СѓРєР°Р·Р°С‚РµР»СЊ РЅР° РјРµРЅРµРґР¶РµСЂ
 	self->loop.data = (void*)self;
 
-	// инициализация стеков (коннектов, буферов, куков)
+	// РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ СЃС‚РµРєРѕРІ (РєРѕРЅРЅРµРєС‚РѕРІ, Р±СѓС„РµСЂРѕРІ, РєСѓРєРѕРІ)
 	B_MEM_INIT_SIZE(BNetHttp, B_CONST_MAX_SLOTS*2);
 	B_MEM_INIT_SIZE(BNetProxy, B_CONST_MAX_SLOTS*2);
 	B_MEM_INIT_SIZE(BRLink, 524288);
@@ -444,28 +540,33 @@ static int BManager_tp_init(BManager *self, PyObject *args, PyObject *kwargs){
 	B_MEM_INIT_SIZE(BWriteS, 524288);
 	B_MEM_INIT_SIZE_BUF();
 
-	// увеличиваем кол-во запущенных объектов NET
+	// СѓРІРµР»РёС‡РёРІР°РµРј РєРѕР»-РІРѕ Р·Р°РїСѓС‰РµРЅРЅС‹С… РѕР±СЉРµРєС‚РѕРІ NET
 	GlobBCount++;
 
-	// определяем мастер-поток
+	// РѕРїСЂРµРґРµР»СЏРµРј РјР°СЃС‚РµСЂ-РїРѕС‚РѕРє
 	if(BMaster == NULL){
 		BMaster = self;
-		// максимальное кол-во блоков должно для страховки превышать допустимое кол-во в 2 раза
+		// РјР°РєСЃРёРјР°Р»СЊРЅРѕРµ РєРѕР»-РІРѕ Р±Р»РѕРєРѕРІ РґРѕР»Р¶РЅРѕ РґР»СЏ СЃС‚СЂР°С…РѕРІРєРё РїСЂРµРІС‹С€Р°С‚СЊ РґРѕРїСѓСЃС‚РёРјРѕРµ РєРѕР»-РІРѕ РІ 2 СЂР°Р·Р°
 		B_MEM_INIT_SIZE(BCacheDNS, B_DNS_CACHE*2);
 	}
 
-	// метод секундного цикла должен жить
+	// РјРµС‚РѕРґС‹ РѕР±СЂР°С‚РЅС‹С… РІС‹Р·РѕРІРѕРІ РґРѕР»Р¶РµРЅ Р¶РёС‚СЊ
 	Py_XINCREF(self->onLoop);
+	Py_XINCREF(self->onRequestError);
 
 	return 0;
 
 memerror:
+	// РµСЃР»Рё Р±С‹Р»Рё РІС‹РґРµР»РµРЅС‹ Р±РѕР»СЊС€РёРµ Р±СѓРµС„СЂС‹ - РѕСЃРІРѕР±РѕР¶РґР°РµРј РёС…
+	if(http->fbuf_bufs[B_FINAL_HEAD]){ free(http->fbuf_bufs[B_FINAL_HEAD]);}
+	if(http->fbuf_bufs[B_FINAL_BODY]){ free(http->fbuf_bufs[B_FINAL_BODY]);}
+
 	PyErr_NoMemory();
 	return -1;
 }
 
 
-// служебные методы класса
+// СЃР»СѓР¶РµР±РЅС‹Рµ РјРµС‚РѕРґС‹ РєР»Р°СЃСЃР°
 static PyObject *BManager_tp_new(PyTypeObject *type, PyObject *args, PyObject *kwargs){
 	BManager *self = (BManager *)PyType_GenericNew(type, args, kwargs);
     if (!self) {
@@ -478,7 +579,9 @@ static int BManager_tp_traverse(BManager *self, visitproc visit, void *arg){
 	Py_VISIT(self->onLoop);
 	Py_VISIT(self->http.onRequest);
 	Py_VISIT(self->http.onResponse);
-	Py_VISIT(self->http.xmlHand);
+    if(self->http.onBeforeRedirect){
+    	Py_VISIT(self->http.onBeforeRedirect);
+    }
 	Py_VISIT(self->proxy.onRequest);
 	Py_VISIT(self->proxy.onRequest);
     return 0;
@@ -488,7 +591,9 @@ static int BManager_tp_clear(BManager *self){
 	Py_CLEAR(self->onLoop);
 	Py_CLEAR(self->http.onRequest);
 	Py_CLEAR(self->http.onResponse);
-	Py_CLEAR(self->http.xmlHand);
+    if(self->http.onBeforeRedirect){
+    	Py_CLEAR(self->http.onBeforeRedirect);
+    }
 	Py_CLEAR(self->proxy.onRequest);
 	Py_CLEAR(self->proxy.onRequest);
     return 0;
@@ -497,15 +602,15 @@ static int BManager_tp_clear(BManager *self){
 static void BManager_tp_dealloc(BManager *self){
 	int i;
 
-	// принудительно вызываем обнуление объектов питона
+	// РїСЂРёРЅСѓРґРёС‚РµР»СЊРЅРѕ РІС‹Р·С‹РІР°РµРј РѕР±РЅСѓР»РµРЅРёРµ РѕР±СЉРµРєС‚РѕРІ РїРёС‚РѕРЅР°
 	BManager_tp_clear(self);
 
-	// в случае ошибки выделения памяти - освобождаем прежде выделенную
+	// РІ СЃР»СѓС‡Р°Рµ РѕС€РёР±РєРё РІС‹РґРµР»РµРЅРёСЏ РїР°РјСЏС‚Рё - РѕСЃРІРѕР±РѕР¶РґР°РµРј РїСЂРµР¶РґРµ РІС‹РґРµР»РµРЅРЅСѓСЋ
 	for(i=0; i<B_FINAL_BODY; i++){
 		if(self->http.fbuf_bufs[i]) free(self->http.fbuf_bufs[i]);
 	}
 
-	// освободим стековые структуры
+	// РѕСЃРІРѕР±РѕРґРёРј СЃС‚РµРєРѕРІС‹Рµ СЃС‚СЂСѓРєС‚СѓСЂС‹
 	B_STACK_CLEAR(BNetHttp);
 	B_STACK_CLEAR(BNetProxy);
 	B_STACK_CLEAR(BRLink);
@@ -513,26 +618,26 @@ static void BManager_tp_dealloc(BManager *self){
 	B_STACK_CLEAR(BWriteS);
 	B_STACK_CLEAR_BUF();
 
-	// очищаем память из-под DNS
+	// РѕС‡РёС‰Р°РµРј РїР°РјСЏС‚СЊ РёР·-РїРѕРґ DNS
 	if(self == BMaster){
 		B_STACK_CLEAR(BCacheDNS);
 		BMaster = NULL;
 	}
 
-    // освобождаем лок
+    // РѕСЃРІРѕР±РѕР¶РґР°РµРј Р»РѕРє
 	uv_rwlock_destroy(&self->stop.lock);
 
-	// освободим днс
+	// РѕСЃРІРѕР±РѕРґРёРј РґРЅСЃ
 	if(self->http.dns.servers){
 		free(self->http.dns.servers);
 	}
 
-	// разустановим ssl
+	// СЂР°Р·СѓСЃС‚Р°РЅРѕРІРёРј ssl
 	if(self->ssl){
 		NSS_ShutdownContext(self->ssl);
 	}
 
-	// закрываем цикл
+	// Р·Р°РєСЂС‹РІР°РµРј С†РёРєР»
 	uv_loop_close(&self->loop);
 
 	//BManager_tp_clear(self);
@@ -541,18 +646,17 @@ static void BManager_tp_dealloc(BManager *self){
 
 
 static PyMethodDef BManager_tp_methods[] = {
-    { "queries_http", (PyCFunction)BManager_func_queries_http, METH_KEYWORDS, "Adds a new http-connection" },
-    { "queries_proxy", (PyCFunction)BManager_func_queries_proxy, METH_KEYWORDS, "Adds a new proxy for checker" },
-    { "set_params", (PyCFunction)BManager_func_set_params, METH_KEYWORDS, "Set params to BManager object" },
+    { "setParams", (PyCFunction)BManager_func_setParams, METH_KEYWORDS, "Set params to BManager object" },
     { "run", (PyCFunction)BManager_func_run, METH_NOARGS, "Run uv loop" },
     { "stop", (PyCFunction)BManager_func_stop, METH_NOARGS, "Stop uv loop" },
+    { "getPlaceEx", (PyCFunction)BManager_func_getPlaceEx, METH_NOARGS, "Get exception place" },
     { NULL }
 };
 
 
 PyObject *BNetwork_func_BGetStrError(BManager *self, PyObject *args){
 
-	u_long errorType = 0;
+	uint32_t errorType = 0;
 	int error = 0;
 	const char *errorStr = NULL;
 	PyObject *errorStrPy = NULL;
@@ -561,10 +665,10 @@ PyObject *BNetwork_func_BGetStrError(BManager *self, PyObject *args){
 		return NULL;
 	}
 
-	// получаем строку ошибки
+	// РїРѕР»СѓС‡Р°РµРј СЃС‚СЂРѕРєСѓ РѕС€РёР±РєРё
 	errorStr = BErrorStr(errorType, error);
 
-	// получаем питон-бъект строки ошибки
+	// РїРѕР»СѓС‡Р°РµРј РїРёС‚РѕРЅ-Р±СЉРµРєС‚ СЃС‚СЂРѕРєРё РѕС€РёР±РєРё
     if (!(errorStrPy = PyString_FromString(errorStr))){
     	return NULL;
     }
@@ -605,10 +709,10 @@ void initBNetwork(void) {
 		return;
 	}
 
-	// инициализация DNS-модуля
+	// РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ DNS-РјРѕРґСѓР»СЏ
 	BInitDNSModule();
 
-	// инициализация лока для памяти
+	// РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ Р»РѕРєР° РґР»СЏ РїР°РјСЏС‚Рё
 	B_MALLOC_INITLOCK;
 
     /* Initialize GIL */
@@ -616,36 +720,25 @@ void initBNetwork(void) {
 
 	mod = Py_InitModule("BNetwork", BNetwork_tp_methods);
 
-	// подготавливаем класс обработчика
-    if (PyType_Ready(&BXmlHandType)) {
-        return;
-    }
-	// ссылка перехватывается методом добавления, поэтому увеличиваем счетчик ссылок
-    Py_INCREF(&BXmlHandType);
-    // добавляем класс NetManager в модуль
-    if (PyModule_AddObject(mod, "BXmlHand", (PyObject *)&BXmlHandType)) {
-        Py_DECREF(&BXmlHandType);
-        return;
-    }
-
-	// подготавливаем класс
+	// РїРѕРґРіРѕС‚Р°РІР»РёРІР°РµРј РєР»Р°СЃСЃ
     if (PyType_Ready(&BManagerType)) {
         return;
     }
-	// ссылка перехватывается методом добавления, поэтому увеличиваем счетчик ссылок
+	// СЃСЃС‹Р»РєР° РїРµСЂРµС…РІР°С‚С‹РІР°РµС‚СЃСЏ РјРµС‚РѕРґРѕРј РґРѕР±Р°РІР»РµРЅРёСЏ, РїРѕСЌС‚РѕРјСѓ СѓРІРµР»РёС‡РёРІР°РµРј СЃС‡РµС‚С‡РёРє СЃСЃС‹Р»РѕРє
     Py_INCREF(&BManagerType);
-    // добавляем класс NetManager в модуль
+    // РґРѕР±Р°РІР»СЏРµРј РєР»Р°СЃСЃ NetManager РІ РјРѕРґСѓР»СЊ
     if (PyModule_AddObject(mod, "BManager", (PyObject *)&BManagerType)) {
         Py_DECREF(&BManagerType);
         return;
     }
 
-    // добавлем макросы имен параметров
+    // РґРѕР±Р°РІР»РµРј РјР°РєСЂРѕСЃС‹ РёРјРµРЅ РїР°СЂР°РјРµС‚СЂРѕРІ
     PyModule_AddIntConstant(mod, "BA_URL", BA_URL);
     PyModule_AddIntConstant(mod, "BA_ACTION", BA_ACTION);
     PyModule_AddIntConstant(mod, "BA_DATA", BA_DATA);
     PyModule_AddIntConstant(mod, "BA_ZIP", BA_ZIP);
     PyModule_AddIntConstant(mod, "BA_UAGENT", BA_UAGENT);
+    PyModule_AddIntConstant(mod, "BA_REFERER", BA_REFERER);
     PyModule_AddIntConstant(mod, "BA_CONNECT", BA_CONNECT);
     PyModule_AddIntConstant(mod, "BA_HEADER", BA_HEADER);
     PyModule_AddIntConstant(mod, "BA_PROXY", BA_PROXY);
@@ -658,25 +751,28 @@ void initBNetwork(void) {
     PyModule_AddIntConstant(mod, "BA_TOUT_DNS", BA_TOUT_DNS);
 
 
-    // добавлем макросы типов коннектов в модуль
+    // РґРѕР±Р°РІР»РµРј РјР°РєСЂРѕСЃС‹ С‚РёРїРѕРІ РєРѕРЅРЅРµРєС‚РѕРІ РІ РјРѕРґСѓР»СЊ
     PyModule_AddIntConstant(mod, "BH_GET", B_HTTP_GET);
     PyModule_AddIntConstant(mod, "BH_POST", B_HTTP_POST);
     PyModule_AddIntConstant(mod, "BH_HEAD", B_HTTP_HEAD);
-    PyModule_AddIntConstant(mod, "BH_EMUL_HEAD", B_HTTP_EMUL_HEAD); // спец. вариант запроса, при котором посылается запрос GET, но ответ будет оборван после получения хедера
+    PyModule_AddIntConstant(mod, "BH_EMUL_HEAD", B_HTTP_EMUL_HEAD); // СЃРїРµС†. РІР°СЂРёР°РЅС‚ Р·Р°РїСЂРѕСЃР°, РїСЂРё РєРѕС‚РѕСЂРѕРј РїРѕСЃС‹Р»Р°РµС‚СЃСЏ Р·Р°РїСЂРѕСЃ GET, РЅРѕ РѕС‚РІРµС‚ Р±СѓРґРµС‚ РѕР±РѕСЂРІР°РЅ РїРѕСЃР»Рµ РїРѕР»СѓС‡РµРЅРёСЏ С…РµРґРµСЂР°
     PyModule_AddIntConstant(mod, "BH_CONNECT", B_HTTP_CONNECT);
 
-    // добавлем макросы типов коннекта в модуль
+    // РґРѕР±Р°РІР»РµРј РјР°РєСЂРѕСЃС‹ С‚РёРїРѕРІ РєРѕРЅРЅРµРєС‚Р° РІ РјРѕРґСѓР»СЊ
     PyModule_AddIntConstant(mod, "BH_CLOSE", B_HTTP_CLOSE);
     PyModule_AddIntConstant(mod, "BH_KEEP", B_HTTP_KEEP);
 
-    // добавлем макросы типов прокси в модуль
+    // РґРѕР±Р°РІР»РµРј РјР°РєСЂРѕСЃС‹ С‚РёРїРѕРІ РїСЂРѕРєСЃРё РІ РјРѕРґСѓР»СЊ
     PyModule_AddIntConstant(mod, "BP_HTTP", B_PROXY_HTTP);
     PyModule_AddIntConstant(mod, "BP_HTTPS", B_PROXY_HTTPS);
     PyModule_AddIntConstant(mod, "BP_SOCKS4", B_PROXY_SOCKS4);
     PyModule_AddIntConstant(mod, "BP_SOCKS5", B_PROXY_SOCKS5);
 
+    // С‚РёРїС‹ NET-РѕР±СЉРµРєС‚РѕРІ
+    PyModule_AddIntConstant(mod, "B_NET_HTTP", B_NET_HTTP);
+    PyModule_AddIntConstant(mod, "B_NET_PROXY", B_NET_PROXY);
 
-    // Инициализируем константы ошибок
+    // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј РєРѕРЅСЃС‚Р°РЅС‚С‹ РѕС€РёР±РѕРє
     B_INIT_ERROR_GEN
 
     _B_SIGNAL_RAISE(SIGABRT)
@@ -730,4 +826,3 @@ static PyTypeObject BManagerType = {
     0,                                                              /*tp_alloc*/
     BManager_tp_new,                                             	/*tp_new*/
 };
-

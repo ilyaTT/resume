@@ -14,7 +14,7 @@ from elasticsearch.helpers import bulk, scan
 from elasticsearch_dsl import Search, Q
 from elasticsearch_dsl.query import Query as EsBaseQuery
 from elasticsearch.serializer import JSONSerializer
-from catalog.utils_time import nowTimeSlug
+from catalog.utils_time import now_time_slug
 
 
 COMMON_NAME_SNAPSHOT = 'shop_snapshot_%s'
@@ -37,7 +37,7 @@ class JSONEnc(JSONSerializer):
         return super(JSONEnc, self).default(data)
 
 
-def readJsonMap(name):
+def read_json_map(name):
     """
         Читает json-маппинг
     """
@@ -51,7 +51,7 @@ def connect():
     return Elasticsearch(serializer=JSONEnc(), **settings.ELASTIC)
 
 
-def setRawQuery(dsl, query):
+def set_raw_query(dsl, query):
     return dsl._clone().update_from_dict({'query': query})
 
 
@@ -59,7 +59,7 @@ class ElasticIndexes(object):
 
     @staticmethod
     def name(slug):
-        return 'offer_%s_%s' % (slug, nowTimeSlug())
+        return 'offer_%s_%s' % (slug, now_time_slug())
 
     def __init__(self):
         with cache.lock('es_index_lock'):
@@ -162,9 +162,9 @@ class ElasticProduct(ElasticBase):
         # если индекс нет - создадим его и запишем маппинг
         if not self.es_index.exists(index=self.index):
             self.es_index.create(index=self.index, body={
-                'settings': readJsonMap('product-settings'),
+                'settings': read_json_map('product-settings'),
                 'mappings': {
-                    self.type_product: readJsonMap('product'),
+                    self.type_product: read_json_map('product'),
                 }
             })
 
@@ -194,7 +194,7 @@ class ElasticProduct(ElasticBase):
 
         return updated
 
-    def aggrOptions(self, param, size=100000, query=None):
+    def aggr_options(self, param, size=100000, query=None):
         """
             Метод выполняет агрегацию по значениям переданного параметра
             :param param:
@@ -217,11 +217,11 @@ class ElasticProduct(ElasticBase):
     def count(self, query=None):
         return self.dsl().query(query).count()
 
-    def execQuery(self, query=None):
+    def exec_query(self, query=None):
         return self.dsl().query(query).execute()
 
-    def execQueryRaw(self, query):
-        return setRawQuery(self.dsl(), query).execute()
+    def exec_query_raw(self, query):
+        return set_raw_query(self.dsl(), query).execute()
 
 
 class ElasticSnapshot(ElasticBase):
@@ -237,9 +237,9 @@ class ElasticSnapshot(ElasticBase):
         # если индекс нет - создадим его и запишем маппинг
         if not self.es_index.exists(index=self.index):
             self.es_index.create(index=self.index, body={
-                'settings': readJsonMap('snapshot-settings'),
+                'settings': read_json_map('snapshot-settings'),
                 'mappings': {
-                    self.type_product: readJsonMap('snapshot'),
+                    self.type_product: read_json_map('snapshot'),
                 }
             })
 
@@ -292,7 +292,7 @@ class MultiQuery(object):
         # билдим запрос
         self.global_queries[-1].append(filter)
 
-    def addLevel(self):
+    def add_level(self):
         """
         Добавляет очередной слой запросов
         :return:
@@ -372,7 +372,7 @@ class MultiQuery(object):
                     # объект фильтра
                     f = data['filter']
                     # текущий запрос
-                    query = f.buildQuery()
+                    query = f.build_query()
                     # булево условие, по которому запрос будет вложен на текущем уровне
                     bool_cond = f.cond_single
 
@@ -418,7 +418,7 @@ class MultiQuery(object):
         return level_build(0)
 
 
-def countByTerms(index, terms):
+def count_by_terms(index, terms):
     """
     Получаем кол-во для указанного индекса по указанным условиям
     :param index:
